@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>UpNext — Floor Scanner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+
+  <!-- ═══════════════ AMBIENT BACKGROUND LAYER ═══════════════ -->
+  <div class="bg-grid"></div>
+  <div class="bg-vignette"></div>
+  <div class="scanline-overlay"></div>
+
+  <!-- ═══════════════ HEADER HUD ═══════════════ -->
+  <header class="hud-header">
+    <div class="hud-corner hud-corner--tl"></div>
+    <div class="brand">
+      <span class="brand-icon">⬆</span>
+      <span class="brand-text">UP<em>NEXT</em></span>
+    </div>
+    <div class="hud-meta">
+      <span class="hud-badge">OCR ENGINE v2.1</span>
+      <span id="statusDot" class="status-dot"></span>
+    </div>
+    <div class="hud-corner hud-corner--tr"></div>
+  </header>
+
+  <!-- ═══════════════ MAIN VIEWPORT ═══════════════ -->
+  <main class="viewport">
+
+    <!-- Live camera feed -->
+    <video id="video" autoplay playsinline muted></video>
+
+    <!-- Hidden canvas for frame capture -->
+    <canvas id="captureCanvas" style="display:none;"></canvas>
+
+    <!-- ── TARGET RETICLE ── -->
+    <div class="reticle" id="reticle">
+      <div class="reticle__corner reticle__corner--tl"></div>
+      <div class="reticle__corner reticle__corner--tr"></div>
+      <div class="reticle__corner reticle__corner--bl"></div>
+      <div class="reticle__corner reticle__corner--br"></div>
+      <div class="reticle__hline reticle__hline--top"></div>
+      <div class="reticle__hline reticle__hline--mid"></div>
+      <div class="reticle__hline reticle__hline--bot"></div>
+      <div class="reticle__vline reticle__vline--left"></div>
+      <div class="reticle__vline reticle__vline--right"></div>
+      <div class="reticle__sweep"></div>
+      <div class="reticle__label">ALIGN LCD HERE</div>
+    </div>
+
+    <!-- ── RESULT BURST ── -->
+    <div class="result-burst" id="resultBurst">
+      <div class="burst-ring burst-ring--1"></div>
+      <div class="burst-ring burst-ring--2"></div>
+      <div class="burst-ring burst-ring--3"></div>
+      <span class="burst-floor" id="burstFloor"></span>
+      <span class="burst-sublabel">FLOOR</span>
+    </div>
+
+    <!-- ── SCAN STATUS BAR ── -->
+    <div class="scan-bar" id="scanBar">
+      <span class="scan-bar__label" id="scanLabel">INITIALIZING…</span>
+      <div class="scan-bar__track">
+        <div class="scan-bar__fill" id="scanFill"></div>
+      </div>
+    </div>
+
+    <!-- ── LIVE STATS HUD ── -->
+    <div class="stats-hud">
+      <div class="stat-cell">
+        <span class="stat-key">SCANS</span>
+        <span class="stat-val" id="scanCount">000</span>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-key">LAST FLOOR</span>
+        <span class="stat-val" id="lastFloor">—</span>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-key">CONFIDENCE</span>
+        <span class="stat-val" id="confidence">—</span>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-key">LATENCY</span>
+        <span class="stat-val" id="latency">—</span>
+      </div>
+    </div>
+
+    <!-- ── HISTORY TICKER ── -->
+    <div class="history-ticker" id="historyTicker">
+      <span class="ticker-label">HISTORY ›</span>
+      <div class="ticker-track" id="tickerTrack"></div>
+    </div>
+
+  </main>
+
+  <!-- ═══════════════ FOOTER HUD ═══════════════ -->
+  <footer class="hud-footer">
+    <div class="hud-corner hud-corner--bl"></div>
+    <span class="footer-left">CAM ACTIVE</span>
+    <span class="footer-center" id="footerTime">00:00:00</span>
+    <span class="footer-right">UPNEXT © 2025</span>
+    <div class="hud-corner hud-corner--br"></div>
+  </footer>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>

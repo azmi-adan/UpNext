@@ -1,7 +1,6 @@
 import os
 import re
 import base64
-import io
 import logging
 
 import cv2
@@ -14,48 +13,67 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+
 def preprocess_image(image_bytes: bytes) -> np.ndarray:
     """
     Pre-process a cracked, glowing blue LCD screen image for OCR.
     Steps:
       1. Decode JPEG/PNG bytes → BGR array
       2. Resize to 500 px wide (preserve aspect ratio)
-      3. Extract Red channel only  (kills blue/green LCD bloom)
-      4. Otsu threshold → clean binary image
+      3. Convert to HSV and extract Value channel (brightness, hue-agnostic)
+      4. Gaussian blur to kill LED bloom/glow artifacts
+      5. Otsu threshold → clean binary image
+      6. Morphological close to fill gaps in digit strokes
     """
     np_arr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
     if img is None:
         raise ValueError("Could not decode image")
 
-    # 1. Resize to 500 px wide
+    # 1. Resize to 500 px wide, preserve aspect ratio
     h, w = img.shape[:2]
-    target_w = 500
-    scale = target_w / w
+    scale = 500 / w
     new_h = int(h * scale)
-    img = cv2.resize(img, (target_w, new_h), interpolation=cv2.INTER_AREA)
+    img = cv2.resize(img, (500, new_h), interpolation=cv2.INTER_AREA)
 
-    # 2. Red channel only
-    red_channel = img[:, :, 2]   # BGR → index 2 = Red
+    # 2. Use HSV Value channel — works for blue, red, green LCDs alike
+    #    (Red channel was wrong for a blue LCD and caused phantom detections)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    v_channel = hsv[:, :, 2]
 
-    # 3. Otsu thresholding
+    # 3. Gaussian blur before thresholding to suppress bloom/glow noise
+    blurred = cv2.GaussianBlur(v_channel, (5, 5), 0)
+
+    # 4. Otsu threshold on denoised brightness
     _, binary = cv2.threshold(
-        red_channel, 0, 255,
+        blurred, 0, 255,
         cv2.THRESH_BINARY + cv2.THRESH_OTSU
     )
 
+    # 5. Morphological close to fill small gaps inside digit strokes
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+
+    logger.debug("Preprocessed image shape: %s", binary.shape)
     return binary
 
 
 def run_ocr(binary_image: np.ndarray) -> str:
     """
-    Run Tesseract with a digit-only whitelist in single-line mode (PSM 7).
+    Run Tesseract with a digit-only whitelist.
+    Tries PSM 7 (single text line) first, then PSM 8 (single word) as fallback.
     Returns the cleaned digit string or empty string.
     """
-    config = "--psm 7 -c tessedit_char_whitelist=0123456789"
-    raw = pytesseract.image_to_string(binary_image, config=config)
-    cleaned = re.sub(r"\D", "", raw).strip()
-    return cleaned
+    for psm in (7, 8):
+        config = f"--psm {psm} -c tessedit_char_whitelist=0123456789"
+        raw = pytesseract.image_to_string(binary_image, config=config)
+        cleaned = re.sub(r"\D", "", raw).strip()
+        if cleaned:
+            logger.info("OCR result with PSM %d: '%s'", psm, cleaned)
+            return cleaned
+
+    logger.info("OCR found no digits")
+    return ""
 
 
 @app.route("/")
@@ -76,7 +94,7 @@ def scan():
         if not b64:
             return jsonify({"error": "No image provided", "floor": ""}), 400
 
-        # Strip data-URL prefix if present
+        # Strip data-URL prefix if present  (e.g. "data:image/jpeg;base64,...")
         if "," in b64:
             b64 = b64.split(",", 1)[1]
 
@@ -84,7 +102,7 @@ def scan():
         binary = preprocess_image(image_bytes)
         floor = run_ocr(binary)
 
-        logger.info("OCR result: '%s'", floor)
+        logger.info("Final floor result: '%s'", floor)
         return jsonify({"floor": floor})
 
     except Exception as exc:
